@@ -14,7 +14,7 @@
 [![Build status](https://travis-ci.org/Neargye/nameof.svg?branch=master)](https://travis-ci.org/Neargye/nameof)
 [![Build status](https://ci.appveyor.com/api/projects/status/yq5fk0d9mwljbubt/branch/master?svg=true)](https://ci.appveyor.com/project/Neargye/nameof/branch/master)
 [![Codacy badge](https://api.codacy.com/project/badge/Grade/1d06f3f07afe4f34acd29c0c8efa830b)](https://www.codacy.com/app/Neargye/nameof?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Neargye/nameof&amp;utm_campaign=Badge_Grade)
-[![Try online](https://img.shields.io/badge/try-online-blue.svg)](https://wandbox.org/permlink/a3pi8aYGnzuMq5Bd)
+[![Try online](https://img.shields.io/badge/try-online-blue.svg)](https://wandbox.org/permlink/p4k7LC9w0BO4UJgo)
 
 # Nameof C++
 
@@ -42,6 +42,7 @@ Header-only C++17 library provides nameof macros and functions to simply obtain 
 ## [Examples](example/example.cpp)
 
 * Nameof
+
   ```cpp
   // Name of variable.
   NAMEOF(somevar) -> "somevar"
@@ -62,6 +63,7 @@ Header-only C++17 library provides nameof macros and functions to simply obtain 
   ```
 
 * Nameof enum
+
   ```cpp
   auto color = Color::RED;
   // Name of enum variable.
@@ -75,6 +77,7 @@ Header-only C++17 library provides nameof macros and functions to simply obtain 
   ```
 
 * Nameof type
+
   ```cpp
   using T = const int&;
   T var = 42;
@@ -92,6 +95,7 @@ Header-only C++17 library provides nameof macros and functions to simply obtain 
   ```
 
 * Compile-time
+
   ```cpp
   constexpr auto somevar_name = NAMEOF(somevar);
   // somevar_name -> "somevar"
@@ -103,6 +107,10 @@ Header-only C++17 library provides nameof macros and functions to simply obtain 
   // type_name -> "int"
   ```
 
+## Remarks
+
+* Before use, read the [limitations](doc/limitations.md) of functionality.
+
 ## Integration
 
 You should add required file [nameof.hpp](include/nameof.hpp).
@@ -111,10 +119,19 @@ If you are using [vcpkg](https://github.com/Microsoft/vcpkg/) on your project fo
 
 If you are using [Conan](https://www.conan.io/) to manage your dependencies, merely add `nameof/x.y.z@neargye/stable` to your conan's requires, where `x.y.z` is the release version you want to use.
 
+Alternatively, you can use something like [CPM](https://github.com/TheLartians/CPM) which is based on CMake's `Fetch_Content` module.
+
+```cmake
+CPMAddPackage(
+    NAME nameof
+    GITHUB_REPOSITORY Neargye/nameof
+    GIT_TAG 0.9.3 # Where `x.y.z` is the release version you want to use.
+)
+
 ## Compiler compatibility
 
 * Clang/LLVM >= 5
-* Visual C++ >= 15.3 / Visual Studio >= 2017
+* MSVC++ >= 14.11 / Visual Studio >= 2017
 * Xcode >= 10
 * GCC >= 7 (GCC >= 9 for NAMEOF_ENUM)
 

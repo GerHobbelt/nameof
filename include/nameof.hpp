@@ -5,11 +5,11 @@
 // | |\  | (_| | | | | | |  __/ (_) | |   | |____|_|   |_|
 // |_| \_|\__,_|_| |_| |_|\___|\___/|_|    \_____|
 // https://github.com/Neargye/nameof
-// version 0.9.2
+// version 0.9.3
 //
 // Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 // SPDX-License-Identifier: MIT
-// Copyright (c) 2016, 2018 - 2019 Daniil Goncharov <neargye@gmail.com>.
+// Copyright (c) 2016, 2018 - 2020 Daniil Goncharov <neargye@gmail.com>.
 //
 // Permission is hereby  granted, free of charge, to any  person obtaining a copy
 // of this software and associated  documentation files (the "Software"), to deal
@@ -43,13 +43,21 @@
 #include <type_traits>
 #include <utility>
 
+#if defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable : 26495) // Variable 'nameof::cstring<N>::chars_' is uninitialized.
+#  pragma warning(disable : 26451) // Arithmetic overflow: 'strings_[static_cast<U>(value) - min_v<E>]' and 'indexes_[static_cast<U>(value) - min_v<E>]' using operator '-' on a 4 byte value and then casting the result to a 8 byte value.
+#endif
+
 // Checks nameof_type compiler compatibility.
 #if defined(__clang__) || defined(__GNUC__) || defined(_MSC_VER)
+#  undef  NAMEOF_TYPE_SUPPORTED
 #  define NAMEOF_TYPE_SUPPORTED 1
 #endif
 
 // Checks nameof_enum compiler compatibility.
-#if defined(__clang__) || defined(__GNUC__) && __GNUC__>= 9 || defined(_MSC_VER)
+#if defined(__clang__) || defined(__GNUC__) && __GNUC__ >= 9 || defined(_MSC_VER)
+#  undef  NAMEOF_ENUM_SUPPORTED
 #  define NAMEOF_ENUM_SUPPORTED 1
 #endif
 
@@ -92,6 +100,9 @@ class [[nodiscard]] cstring {
 
   std::array<char, N + 1> chars_;
 
+  template <std::size_t... I>
+  constexpr cstring(std::string_view str, std::index_sequence<I...>) noexcept : chars_{{str[I]..., '\0'}} {}
+
  public:
   using value_type      = char;
   using size_type       = std::size_t;
@@ -107,11 +118,8 @@ class [[nodiscard]] cstring {
   using reverse_iterator       = std::reverse_iterator<iterator>;
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-  constexpr explicit cstring(std::string_view str) noexcept : chars_{} {
+  constexpr explicit cstring(std::string_view str) noexcept : cstring{str, std::make_index_sequence<N>{}} {
     assert(str.size() == N);
-    for (std::size_t i = 0; i < N; ++i) {
-      chars_[i] = str[i];
-    }
   }
 
   constexpr cstring() = delete;
@@ -164,14 +172,14 @@ class [[nodiscard]] cstring {
 
   [[nodiscard]] constexpr const char* c_str() const noexcept { return data(); }
 
-  template<typename Char = char, typename Traits = std::char_traits<Char>, typename Allocator = std::allocator<Char>>
+  template <typename Char = char, typename Traits = std::char_traits<Char>, typename Allocator = std::allocator<Char>>
   [[nodiscard]] std::basic_string<Char, Traits, Allocator> str() const { return {begin(), end()}; }
 
   [[nodiscard]] constexpr operator std::string_view() const noexcept { return {data(), size()}; }
 
   [[nodiscard]] constexpr explicit operator const char*() const noexcept { return data(); }
 
-  template<typename Char = char, typename Traits = std::char_traits<Char>, typename Allocator = std::allocator<Char>>
+  template <typename Char = char, typename Traits = std::char_traits<Char>, typename Allocator = std::allocator<Char>>
   [[nodiscard]] explicit operator std::basic_string<Char, Traits, Allocator>() const { return {begin(), end()}; }
 };
 
@@ -237,7 +245,7 @@ template <std::size_t N>
 
 template <typename Char, typename Traits, std::size_t N>
 std::basic_ostream<Char, Traits>& operator<<(std::basic_ostream<Char, Traits>& os, const cstring<N>& srt) {
-  for (auto c : std::string_view{srt}) {
+  for (const auto c : std::string_view{srt}) {
     os.put(c);
   }
 
@@ -266,36 +274,6 @@ struct nameof_enum_supported
 #else
     : std::false_type {};
 #endif
-
-template <std::size_t N>
-struct static_string {
-  constexpr explicit static_string(std::string_view str) noexcept : chars{} {
-    assert(str.size() == N);
-    for (std::size_t i = 0; i < N; ++i) {
-      chars[i] = str[i];
-    }
-  }
-
-  constexpr const char* data() const noexcept { return chars.data(); }
-
-  constexpr std::size_t size() const noexcept { return N; }
-
-  constexpr operator std::string_view() const noexcept { return {data(), size()}; }
-
- private:
-  std::array<char, N + 1> chars;
-};
-
-template <>
-struct static_string<0> {
-  constexpr static_string(std::string_view) noexcept {}
-
-  constexpr const char* data() const noexcept { return nullptr; }
-
-  constexpr std::size_t size() const noexcept { return 0; }
-
-  constexpr operator std::string_view() const noexcept { return {}; }
-};
 
 template <typename T>
 using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -389,14 +367,17 @@ template <typename E, E V>
 constexpr auto n() noexcept {
   static_assert(is_enum_v<E>, "nameof::detail::n requires enum type.");
 #if defined(NAMEOF_ENUM_SUPPORTED) && NAMEOF_ENUM_SUPPORTED
-#  if defined(__clang__) || defined(__GNUC__) && __GNUC__>= 9
+#  if defined(__clang__) || defined(__GNUC__)
   constexpr auto name = pretty_name({__PRETTY_FUNCTION__, sizeof(__PRETTY_FUNCTION__) - 2});
 #  elif defined(_MSC_VER)
   constexpr auto name = pretty_name({__FUNCSIG__, sizeof(__FUNCSIG__) - 17});
 #  endif
-  return static_string<name.size()>{name};
+  if constexpr (name.size() > 0) {
+    return cstring<name.size()>{name};
+  } else {
+    return std::string_view{};
+  }
 #else
-  static_assert(nameof_enum_supported<E>::value, "nameof::nameof_enum: Unsupported compiler (https://github.com/Neargye/nameof#compiler-compatibility).");
   return std::string_view{}; // Unsupported compiler.
 #endif
 }
@@ -407,18 +388,18 @@ inline constexpr auto enum_name_v = n<E, V>();
 namespace enums {
 
 template <typename L, typename R>
-constexpr bool mixed_sign_less(L lhs, R rhs) noexcept {
-  static_assert(std::is_integral_v<L> && std::is_integral_v<R>, "nameof::detail::mixed_sign_less requires integral type.");
+constexpr bool cmp_less(L lhs, R rhs) noexcept {
+  static_assert(std::is_integral_v<L> && std::is_integral_v<R>, "nameof::detail::cmp_less requires integral type.");
 
-  if constexpr (std::is_signed_v<L> && std::is_unsigned_v<R>) {
-    // If 'left' is negative, then result is 'true', otherwise cast & compare.
-    return lhs < 0 || static_cast<std::make_unsigned_t<L>>(lhs) < rhs;
-  } else if constexpr (std::is_unsigned_v<L> && std::is_signed_v<R>) {
-    // If 'right' is negative, then result is 'false', otherwise cast & compare.
-    return rhs >= 0 && lhs < static_cast<std::make_unsigned_t<R>>(rhs);
-  } else {
+  if constexpr (std::is_signed_v<L> == std::is_signed_v<R>) {
     // If same signedness (both signed or both unsigned).
     return lhs < rhs;
+  } else if constexpr (std::is_signed_v<R>) {
+    // If 'right' is negative, then result is 'false', otherwise cast & compare.
+    return rhs > 0 && lhs < static_cast<std::make_unsigned_t<R>>(rhs);
+  } else {
+    // If 'left' is negative, then result is 'true', otherwise cast & compare.
+    return lhs < 0 || static_cast<std::make_unsigned_t<L>>(lhs) < rhs;
   }
 }
 
@@ -429,7 +410,7 @@ constexpr int reflected_min() noexcept {
   static_assert(lhs > (std::numeric_limits<std::int16_t>::min)(), "nameof::enum_range requires min must be greater than INT16_MIN.");
   constexpr auto rhs = (std::numeric_limits<std::underlying_type_t<E>>::min)();
 
-  return mixed_sign_less(lhs, rhs) ? rhs : lhs;
+  return cmp_less(lhs, rhs) ? rhs : lhs;
 }
 
 template <typename E>
@@ -439,7 +420,7 @@ constexpr int reflected_max() noexcept {
   static_assert(lhs < (std::numeric_limits<std::int16_t>::max)(), "nameof::enum_range requires max must be less than INT16_MAX.");
   constexpr auto rhs = (std::numeric_limits<std::underlying_type_t<E>>::max)();
 
-  return mixed_sign_less(lhs, rhs) ? lhs : rhs;
+  return cmp_less(lhs, rhs) ? lhs : rhs;
 }
 
 template <typename E>
@@ -545,7 +526,7 @@ constexpr auto strings() noexcept {
 template <typename E>
 class enum_traits {
   static_assert(is_enum_v<E>, "nameof::enum_traits requires enum type.");
-  static_assert(count_v<E> > 0, "nameof::enum_range requires enum implementation or valid max and min.");
+  static_assert(count_v<E> > 0, "nameof::enum_range requires enum implementation and valid max and min.");
   using U = std::underlying_type_t<E>;
   inline static constexpr auto strings_ = strings<E>();
   inline static constexpr auto indexes_ = indexes<E>(std::make_integer_sequence<int, range_size_v<E>>{});
@@ -554,7 +535,7 @@ class enum_traits {
   static constexpr std::string_view name(E value) noexcept {
     if (static_cast<U>(value) >= static_cast<U>(min_v<E>) && static_cast<U>(value) <= static_cast<U>(max_v<E>)) {
       if constexpr (sparsity_v<E>) {
-        if (auto i = indexes_[static_cast<U>(value) - min_v<E>]; i != invalid_index_v<E>) {
+        if (const auto i = indexes_[static_cast<U>(value) - min_v<E>]; i != invalid_index_v<E>) {
           return strings_[i];
         }
       } else {
@@ -578,14 +559,15 @@ constexpr auto n() noexcept {
 #  elif defined(_MSC_VER)
   constexpr std::string_view name{__FUNCSIG__ + 63, sizeof(__FUNCSIG__) - 81 - (__FUNCSIG__[sizeof(__FUNCSIG__) - 19] == ' ' ? 1 : 0)};
 #  endif
-  static_assert(name.size() > 0, "Type does not have a name.");
 
   return cstring<name.size()>{name};
 #else
-  static_assert(nameof_type_supported<T...>::value, "nameof::nameof_type: Unsupported compiler (https://github.com/Neargye/nameof#compiler-compatibility).");
   return std::string_view{}; // Unsupported compiler.
 #endif
 }
+
+template <typename... T>
+inline constexpr auto type_name_v = n<T...>();
 
 } // namespace nameof::detail
 
@@ -598,39 +580,50 @@ inline constexpr bool is_nameof_enum_supported = detail::nameof_enum_supported<v
 // Obtains simple (unqualified) string enum name of enum variable.
 template <typename E>
 [[nodiscard]] constexpr auto nameof_enum(E value) noexcept -> detail::enable_if_enum_t<E, std::string_view> {
+  static_assert(detail::nameof_enum_supported<E>::value, "nameof::nameof_enum unsupported compiler (https://github.com/Neargye/nameof#compiler-compatibility).");
   return detail::enums::enum_traits<detail::remove_cvref_t<E>>::name(value);
 }
 
 // Obtains simple (unqualified) string enum name of static storage enum variable.
 // This version is much lighter on the compile times and is not restricted to the enum_range limitation.
 template <auto V>
-[[nodiscard]] constexpr auto nameof_enum() noexcept {
-  using D = detail::remove_cvref_t<decltype(V)>;
-  static_assert(std::is_enum_v<D>, "nameof::nameof_enum requires enum type.");
-  constexpr auto name = detail::n<D, V>();
+[[nodiscard]] constexpr auto nameof_enum() noexcept -> detail::enable_if_enum_t<decltype(V), std::string_view> {
+  using E = detail::remove_cvref_t<decltype(V)>;
+  static_assert(detail::nameof_enum_supported<E>::value, "nameof::nameof_enum unsupported compiler (https://github.com/Neargye/nameof#compiler-compatibility).");
+  constexpr std::string_view name = detail::enum_name_v<E, V>;
   static_assert(name.size() > 0, "Enum value does not have a name.");
 
-  return cstring<name.size()>{name};
+  return name;
 }
 
 // Obtains string name of type, reference and cv-qualifiers are ignored.
 template <typename T>
-[[nodiscard]] constexpr auto nameof_type() noexcept {
+[[nodiscard]] constexpr std::string_view nameof_type() noexcept {
+  static_assert(detail::nameof_type_supported<T>::value, "nameof::nameof_type unsupported compiler (https://github.com/Neargye/nameof#compiler-compatibility).");
 #if defined(_MSC_VER)
-  return detail::n<detail::identity<detail::remove_cvref_t<T>>>();
+  using U = detail::identity<detail::remove_cvref_t<T>>;
 #else
-  return detail::n<detail::remove_cvref_t<T>>();
+  using U = detail::remove_cvref_t<T>;
 #endif
+  constexpr std::string_view name = detail::type_name_v<U>;
+  static_assert(name.size() > 0, "Type does not have a name.");
+
+  return name;
 }
 
 // Obtains string name of full type, with reference and cv-qualifiers.
 template <typename T>
-[[nodiscard]] constexpr auto nameof_full_type() noexcept {
+[[nodiscard]] constexpr std::string_view nameof_full_type() noexcept {
+  static_assert(detail::nameof_type_supported<T>::value, "nameof::nameof_type unsupported compiler (https://github.com/Neargye/nameof#compiler-compatibility).");
 #if defined(_MSC_VER)
-  return detail::n<detail::identity<T>>();
+  using U = detail::identity<T>;
 #else
-  return detail::n<T>();
+  using U = T;
 #endif
+  constexpr std::string_view name = detail::type_name_v<U>;
+  static_assert(name.size() > 0, "Type does not have a name.");
+
+  return name;
 }
 
 } // namespace nameof
@@ -641,7 +634,8 @@ template <typename T>
   constexpr auto name = ::nameof::detail::pretty_name(#__VA_ARGS__, true); \
   static_assert(name.size() > 0, "Expression does not have a name.");      \
   constexpr auto size = name.size();                                       \
-  return ::nameof::cstring<size>{name}; }()
+  constexpr auto nameof = ::nameof::cstring<size>{name};                   \
+  return nameof; }()
 
 // Obtains simple (unqualified) full (with template suffix) string name of variable, function, macro.
 #define NAMEOF_FULL(...) []() constexpr noexcept {                          \
@@ -649,7 +643,8 @@ template <typename T>
   constexpr auto name = ::nameof::detail::pretty_name(#__VA_ARGS__, false); \
   static_assert(name.size() > 0, "Expression does not have a name.");       \
   constexpr auto size = name.size();                                        \
-  return ::nameof::cstring<size>{name}; }()
+  constexpr auto nameof_full = ::nameof::cstring<size>{name};               \
+  return nameof_full; }()
 
 // Obtains raw string name of variable, function, macro.
 #define NAMEOF_RAW(...) []() constexpr noexcept {                     \
@@ -657,7 +652,8 @@ template <typename T>
   constexpr auto name = ::std::string_view{#__VA_ARGS__};             \
   static_assert(name.size() > 0, "Expression does not have a name."); \
   constexpr auto size = name.size();                                  \
-  return ::nameof::cstring<size>{name}; }()
+  constexpr auto nameof_raw = ::nameof::cstring<size>{name};          \
+  return nameof_raw; }()
 
 // Obtains simple (unqualified) string enum name of enum variable.
 #define NAMEOF_ENUM(...) ::nameof::nameof_enum(__VA_ARGS__)
@@ -677,5 +673,9 @@ template <typename T>
 
 // Obtains string name full type of expression, with reference and cv-qualifiers.
 #define NAMEOF_FULL_TYPE_EXPR(...) ::nameof::nameof_full_type<decltype(__VA_ARGS__)>()
+
+#if defined(_MSC_VER)
+#  pragma warning(pop)
+#endif
 
 #endif // NEARGYE_NAMEOF_HPP

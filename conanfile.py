@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from conans import ConanFile
+from conans import ConanFile, tools
 from conans.errors import ConanInvalidConfiguration
 
 class NameofConan(ConanFile):
     name = "nameof"
-    version = "0.9.2"
+    version = "0.9.3"
     description = "Header-only C++17 library provides nameof macros and functions to simply obtain the name of a variable, type, function, macro, and enum."
     topics = (
         "conan",
@@ -29,7 +29,7 @@ class NameofConan(ConanFile):
     @property
     def supported_compiler(self):
         compiler = str(self.settings.compiler)
-        version = str(self.settings.compiler.version)
+        version = tools.Version(self.settings.compiler.version)
         if compiler == "Visual Studio" and version >= "15":
             return True
         if compiler == "gcc" and version >= "7":
