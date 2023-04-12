@@ -199,8 +199,9 @@ constexpr string_view pointer_name() noexcept {
 } // namespace nameof::customize
 
 template <std::uint16_t N>
-class [[nodiscard]] cstring {
+class [[nodiscard]] cstring : public std::array<char, N + 1> {
  public:
+  using base_t          = std::array<char, N + 1>;
   using value_type      = const char;
   using size_type       = std::uint16_t;
   using difference_type = std::ptrdiff_t;
@@ -231,7 +232,7 @@ class [[nodiscard]] cstring {
 
   cstring& operator=(cstring&&) = default;
 
-  [[nodiscard]] constexpr const_pointer data() const noexcept { return chars_; }
+  [[nodiscard]] constexpr const_pointer data() const noexcept { return base_t::data(); }
 
   [[nodiscard]] constexpr size_type size() const noexcept { return N; }
 
@@ -251,11 +252,11 @@ class [[nodiscard]] cstring {
 
   [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return rend(); }
 
-  [[nodiscard]] constexpr const_reference operator[](size_type i) const noexcept { return assert(i < size()), chars_[i]; }
+  [[nodiscard]] constexpr const_reference operator[](size_type i) const noexcept { return assert(i < size()), data()[i]; }
 
-  [[nodiscard]] constexpr const_reference front() const noexcept { return chars_[0]; }
+  [[nodiscard]] constexpr const_reference front() const noexcept { return data()[0]; }
 
-  [[nodiscard]] constexpr const_reference back() const noexcept { return chars_[N]; }
+  [[nodiscard]] constexpr const_reference back() const noexcept { return data()[N]; }
 
   [[nodiscard]] constexpr size_type length() const noexcept { return size(); }
 
@@ -275,9 +276,7 @@ class [[nodiscard]] cstring {
 
  private:
   template <std::uint16_t... I>
-  constexpr cstring(string_view str, std::integer_sequence<std::uint16_t, I...>) noexcept : chars_{str[I]..., '\0'} {}
-
-  char chars_[static_cast<std::size_t>(N) + 1];
+  constexpr cstring(string_view str, std::integer_sequence<std::uint16_t, I...>) noexcept : base_t{str[I]..., '\0'} {}
 };
 
 template <>
