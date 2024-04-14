@@ -23,7 +23,9 @@
 #include <string>
 #include <string_view>
 
+#if !defined(BUILD_MONOLITHIC)
 #define CATCH_CONFIG_MAIN
+#endif
 #include <catch.hpp>
 
 struct MyString {

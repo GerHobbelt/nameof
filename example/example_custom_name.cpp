@@ -24,6 +24,8 @@
 
 #include <nameof.hpp>
 
+#include "monolithic_examples.h"
+
 enum class Color { RED = -10, BLUE = 0, GREEN = 10 };
 enum class Numbers { One, Two, Three };
 
@@ -73,7 +75,12 @@ constexpr std::string_view nameof::customize::type_name<a1_test>() noexcept {
   return "Animal";
 }
 
-int main() {
+
+#if defined(BUILD_MONOLITHIC)
+#define main nameof_custom_name_example_main
+#endif
+
+int main(void) {
 #if defined(NAMEOF_ENUM_SUPPORTED)
   std::cout << nameof::nameof_enum(Color::RED) << std::endl; // 'the red color'
   std::cout << nameof::nameof_enum(Color::BLUE) << std::endl; // 'The BLUE'

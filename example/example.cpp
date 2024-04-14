@@ -27,6 +27,8 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "monolithic_examples.h"
+
 struct Base { virtual ~Base() = default; };
 
 struct Derived : Base {};
@@ -101,7 +103,12 @@ void name_to_string_view(std::string_view name) {
   std::cout << name << std::endl;
 }
 
-int main() {
+
+#if defined(BUILD_MONOLITHIC)
+#define main        nameof_example_main
+#endif
+
+int main(void) {
   // Compile-time.
   constexpr auto name = NAMEOF(structvar);
   using namespace std::literals::string_view_literals;
