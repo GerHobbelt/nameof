@@ -1,6 +1,6 @@
 // Licensed under the MIT License <http://opensource.org/licenses/MIT>.
 // SPDX-License-Identifier: MIT
-// Copyright (c) 2019 - 2023 Daniil Goncharov <neargye@gmail.com>.
+// Copyright (c) 2019 - 2024 Daniil Goncharov <neargye@gmail.com>.
 //
 // Permission is hereby  granted, free of charge, to any  person obtaining a copy
 // of this software and associated  documentation files (the "Software"), to deal
@@ -34,7 +34,7 @@ struct MyString {
   MyString(const char* s, std::size_t l) : str{s, l} {} // required
   bool empty() const { return str.empty(); } // required
   MyString& append(std::size_t count, char c) { str.append(count, c); return *this; } // required
-  MyString& append(const char* s) { str.append(s); return *this; } // required
+  MyString& append(const char* s, std::size_t count) { str.append(s, count); return *this; } // required
   MyString& append(const MyString& s) { str.append(s.str); return *this; } // required
 
   std::size_t size() const { return str.size(); }
