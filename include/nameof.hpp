@@ -250,7 +250,7 @@ class [[nodiscard]] cstring {
 
   [[nodiscard]] constexpr const_reverse_iterator crend() const noexcept { return rend(); }
 
-  [[nodiscard]] constexpr const_reference operator[](size_type i) const noexcept { return assert(i < size()), chars_[i]; }
+  [[nodiscard]] constexpr const_reference operator[](size_type i) const noexcept { assert(i < size()); return chars_[i]; }
 
   [[nodiscard]] constexpr const_reference front() const noexcept { return chars_[0]; }
 
@@ -530,7 +530,8 @@ constexpr I log2(I value) noexcept {
   static_assert(std::is_integral_v<I>, "nameof::detail::log2 requires integral type.");
 
   if constexpr (std::is_same_v<I, bool>) { // bool special case
-    return assert(false), value;
+    assert(false);
+    return value;
   } else {
     auto ret = I{0};
     for (; value > I{1}; value >>= I{1}, ++ret) {}
